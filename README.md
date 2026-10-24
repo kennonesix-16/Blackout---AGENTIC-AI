@@ -23,7 +23,7 @@ Blackout Broker is a local-first demonstrator of an emergency energy marketplace
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install -r backend/requirements.txt
-uvicorn backend.app.main:app --reload --port 8000
+python -m uvicorn backend.app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
 ### Frontend
@@ -31,10 +31,11 @@ uvicorn backend.app.main:app --reload --port 8000
 ```bash
 cd frontend
 npm install
+npm run typecheck
 npm run dev
 ```
 
-Open `http://localhost:5173` after starting both processes. The dashboard connects to `http://localhost:8000` by default. Set `VITE_API_URL` to use another backend origin.
+Open `http://localhost:5173` after starting both processes. The dashboard connects to `http://localhost:8000` by default. Copy `frontend/.env.example` to `frontend/.env.local` only when overriding the backend or WebSocket origin; the supported variables are `VITE_API_BASE_URL` and `VITE_WS_BASE_URL`.
 
 ## API and scenarios
 
@@ -61,22 +62,23 @@ All power values are instantaneous `kW`; prices are modeled `₹/kWh` midpoint v
 
 ## Two-minute demo
 
-1. Start the backend and frontend; confirm `LIVE TELEMETRY` and `SIMULATION FALLBACK`.
+1. Start the backend and frontend; confirm `LIVE TELEMETRY`, `BACKEND CONNECTED`, and `SIMULATION FALLBACK`.
 2. Show the eight-bus SVG topology, hospital request, EV SoC, commercial flexibility, and order book.
-3. Click **Inject feeder loss**. The UI should show a red shock state and changed feeder utilization.
+3. Click **-20% supply** to show a real shortage, hospital prioritization, and honest unmet demand. Then click **-50% feeder** to show a red shock state, changed feeder utilization, accepted trades, and a rejected trade.
 4. Read the decision feed: accepted V2G/commercial trades are committed; the residential-north candidate is rejected for a thermal line limit.
-5. Point to measured auction/telemetry timing and explain that 200 ms / 100 ms are targets, not guarantees.
-6. Finish with the limitation statement in the footer: this is not production grid control or a continuity guarantee.
+5. Click **Normal** or **Reset** and show the hospital returning to full allocation with zero deficit.
+6. Point to measured auction/telemetry timing and explain that 200 ms / 100 ms are targets, not guarantees.
+7. Finish with the limitation statement in the footer: this is not production grid control or a continuity guarantee.
 
 ## Checks
 
 ```bash
 PYTHONPATH=backend .venv/bin/python -m pytest -q backend/tests
 PYTHONPATH=. .venv/bin/python scripts/smoke_test.py
-cd frontend && npm run build
+cd frontend && npm run typecheck && npm run build
 ```
 
-The environment used to assemble this workspace did not have the Python or Node dependencies preinstalled. If package installation is unavailable, the source and commands above remain the reproducible setup path; run the checks after network/package access is restored.
+No hosted deployment configuration is included; this MVP is intended for local judging unless the team chooses a separate platform. Do not present a deployment as complete unless a hosted URL has been started and health/WebSocket checks have been verified.
 
 ## Physics and agent caveats
 

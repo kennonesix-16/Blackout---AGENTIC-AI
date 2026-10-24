@@ -35,6 +35,7 @@ export interface AgentState {
   soc_pct?: number | null
   curtailed_kw: number
   policy_note: string
+  allocation_reason?: string
 }
 
 export interface Order {
@@ -58,6 +59,11 @@ export interface TradeDecision {
   reason: string
   physics_mode: string
   timestamp: string
+  decision_id?: string | null
+  affected_id?: string | null
+  decision_type?: 'trade' | 'allocation' | 'scenario'
+  before?: Record<string, number>
+  after?: Record<string, number>
 }
 
 export interface Metrics {
@@ -82,6 +88,7 @@ export interface ScenarioStatus {
   shock_label: string
   seed: number
   physics_mode: string
+  scenario_id?: string
 }
 
 export interface PowerBalance {
@@ -104,6 +111,30 @@ export interface TelemetrySnapshot {
   power_balance: PowerBalance
   metrics: Metrics
   scenario: ScenarioStatus
+  generators?: GeneratorState[]
+  event_log?: DecisionEvent[]
+}
+
+export interface GeneratorState {
+  generator_id: string
+  type: 'renewable' | 'conventional'
+  node_id: string
+  capacity_kw: number
+  available_kw: number
+  status: string
+  allocation_kw: number
+  reason: string
+}
+
+export interface DecisionEvent {
+  decision_id: string
+  kind: 'monitoring' | 'allocation' | 'trade' | 'scenario'
+  affected_id: string
+  decision: string
+  reason: string
+  timestamp: string
+  before: Record<string, number>
+  after: Record<string, number>
 }
 
 export interface HealthResponse {

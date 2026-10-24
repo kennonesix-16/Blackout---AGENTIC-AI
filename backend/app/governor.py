@@ -36,6 +36,8 @@ def validate_trade(
         if from_node == "residential-north" or to_node == "residential-north":
             if proposal.quantity_kw > remaining_capacity:
                 return _reject(proposal, f"line {line_id} thermal limit: {proposal.quantity_kw:.0f}kW > {remaining_capacity:.0f}kW")
+            if shock_fraction > 0 and proposal.quantity_kw >= remaining_capacity:
+                return _reject(proposal, f"line {line_id} thermal limit: {proposal.quantity_kw:.0f}kW reaches the derated {remaining_capacity:.0f}kW limit during feeder shock")
         effective_capacity = capacity * (1 - shock_fraction * 0.25)
         if proposal.quantity_kw > min(remaining_capacity, effective_capacity * 1.35):
             return _reject(proposal, f"conservative feeder limit on {line_id}")

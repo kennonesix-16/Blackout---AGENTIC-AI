@@ -38,7 +38,9 @@ LINES = [
     LineSpec("line-west-ev", "substation-west", "ev-depot", 300),
     LineSpec("line-hospital-commercial-n", "hospital", "commercial-north", 150),
     LineSpec("line-hospital-commercial-s", "hospital", "commercial-south", 160),
-    LineSpec("line-ev-residential-n", "ev-depot", "residential-north", 50),
+    # Baseline path supports the 60 kW residential offer; the feeder-loss
+    # safety policy reserves headroom and rejects the edge-case offer during shock.
+    LineSpec("line-ev-residential-n", "ev-depot", "residential-north", 60),
     LineSpec("line-ev-residential-s", "ev-depot", "residential-south", 110),
     LineSpec("line-east-west-tie", "substation-east", "substation-west", 240),
 ]

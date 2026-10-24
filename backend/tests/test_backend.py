@@ -99,7 +99,7 @@ async def test_hospital_allocation_uses_only_latest_clearing_cycle():
         assert hospital.served_kw == allocated
         assert hospital.unmet_kw == hospital.requested_kw - allocated
         assert agent.served_kw == allocated
-        assert allocated < hospital.requested_kw
+        assert allocated <= hospital.requested_kw
     # The bounded activity feed still contains earlier cycles, not just current trades.
     snapshot = simulator.snapshot()
     assert len(snapshot.recent_decisions) == 20
@@ -121,6 +121,17 @@ def test_empty_clearing_cycle_does_not_reuse_prior_allocation(monkeypatch):
     assert hospital.unmet_kw == hospital.requested_kw
     assert commercial.curtailed_kw == 0
     assert snapshot.recent_decisions == history
+
+
+def test_baseline_clearing_fully_serves_hospital_when_grid_is_healthy():
+    simulator = Simulator()
+    simulator._run_tick_locked()
+    snapshot = simulator.snapshot()
+    hospital = next(node for node in snapshot.nodes if node.id == "hospital")
+    assert snapshot.scenario.scenario_id == "normal"
+    assert hospital.served_kw == hospital.requested_kw
+    assert hospital.unmet_kw == 0
+    assert snapshot.power_balance.deficit_kw == 0
 
 
 @pytest.mark.asyncio
