@@ -43,7 +43,7 @@ function makeDecisions(shock: boolean) {
 
 export function createMockSnapshot(tick = 1, scenario: CrisisScenario = 'normal'): TelemetrySnapshot {
   const shock = scenario !== 'normal'
-  const severity = scenario === 'feeder_loss' ? 0.5 : scenario === 'supply_deficit' ? 0.2 : scenario === 'solar_reduction' ? 0.2 : 0
+  const severity = scenario === 'feeder_loss' ? 0.5 : scenario === 'feeder_outage' ? 0 : scenario === 'supply_deficit' ? 0.2 : scenario === 'supply_40' ? 0.4 : scenario === 'solar_reduction' || scenario === 'renewable_drop' ? 0.2 : 0
   const decisions = makeDecisions(shock)
   const commercialCurtail = shock ? 100 : 0
   const demand = baseOrders.filter((order) => order.side === 'buy').reduce((sum, order) => sum + order.quantity_kw, 0)
@@ -79,7 +79,7 @@ export function createMockSnapshot(tick = 1, scenario: CrisisScenario = 'normal'
     recent_decisions: decisions,
     power_balance: { total_demand_kw: demand, available_supply_kw: supply, served_load_kw: served, unmet_demand_kw: unmet, deficit_kw: unmet },
     metrics: { auction_ms: shock ? 1.4 : 0.9, emission_ms: 0.5, telemetry_age_ms: 0, auction_target_ms: 200, telemetry_target_ms: 100, auction_samples: tick, telemetry_samples: tick * 2, auction_p50_ms: shock ? 1.2 : 0.8, auction_p95_ms: shock ? 2.1 : 1.4, telemetry_p50_ms: 0.4, telemetry_p95_ms: 0.8, missed_auction_cycles: 0 },
-    scenario: { name: 'Ward 4 feeder resilience', phase: shock ? 'shock' : 'baseline', shock_active: shock, shock_label: scenario === 'normal' ? 'No active shock' : scenario === 'feeder_loss' ? 'Feeder Loss · 50%' : scenario === 'supply_deficit' ? 'Supply Deficit · 20%' : 'Solar Reduction · 20%', seed: 42, physics_mode: 'SIMULATION FALLBACK' },
+    scenario: { name: 'Ward 4 feeder resilience', phase: shock ? 'shock' : 'baseline', shock_active: shock, shock_label: scenario === 'normal' ? 'No active shock' : scenario === 'feeder_loss' ? 'Feeder Loss · 50%' : scenario === 'feeder_outage' ? 'Feeder Outage · 100%' : scenario === 'supply_deficit' ? 'Supply Deficit · 20%' : scenario === 'supply_40' ? 'Supply Deficit · 40%' : 'Solar Reduction · 20%', seed: 42, physics_mode: 'SIMULATION FALLBACK' },
   }
 }
 
