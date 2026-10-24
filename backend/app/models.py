@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 SCHEMA_VERSION = "1.0"
@@ -114,6 +114,31 @@ class Metrics(BaseModel):
     missed_auction_cycles: int
 
 
+class PowerBalance(BaseModel):
+    """Current emergency-market balance in equivalent kW, not whole-city metering."""
+
+    model_config = ConfigDict(allow_inf_nan=False)
+
+    total_demand_kw: float = Field(ge=0)
+    available_supply_kw: float = Field(ge=0)
+    served_load_kw: float = Field(ge=0)
+    unmet_demand_kw: float = Field(ge=0)
+    deficit_kw: float = Field(ge=0)
+
+    @model_validator(mode="after")
+    def validate_invariants(self) -> "PowerBalance":
+        if self.served_load_kw > self.total_demand_kw:
+            raise ValueError("served_load_kw cannot exceed total_demand_kw")
+        if self.served_load_kw > self.available_supply_kw:
+            raise ValueError("served_load_kw cannot exceed available_supply_kw")
+        expected_unmet = max(0.0, self.total_demand_kw - self.served_load_kw)
+        if abs(self.unmet_demand_kw - expected_unmet) > 1e-9:
+            raise ValueError("unmet_demand_kw must equal max(0, total_demand_kw - served_load_kw)")
+        if abs(self.deficit_kw - self.unmet_demand_kw) > 1e-9:
+            raise ValueError("deficit_kw must equal unmet_demand_kw")
+        return self
+
+
 class TelemetrySnapshot(BaseModel):
     schema_version: str = SCHEMA_VERSION
     timestamp: str
@@ -123,6 +148,7 @@ class TelemetrySnapshot(BaseModel):
     agents: list[AgentState]
     order_book: list[Order]
     recent_decisions: list[TradeDecision]
+    power_balance: PowerBalance
     metrics: Metrics
     scenario: ScenarioStatus
 

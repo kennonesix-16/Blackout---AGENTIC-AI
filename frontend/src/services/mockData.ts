@@ -24,9 +24,10 @@ const lineSpecs: GridLine[] = [
 
 const baseOrders: Order[] = [
   { id: 'bid-hospital', timestamp: new Date().toISOString(), node_id: 'hospital', side: 'buy', quantity_kw: 280, price_per_kwh: 28.5, status: 'open', agent_type: 'hospital' },
-  { id: 'bid-residential-a', timestamp: new Date().toISOString(), node_id: 'residential-north', side: 'buy', quantity_kw: 90, price_per_kwh: 11.2, status: 'open', agent_type: 'residential' },
   { id: 'ask-ev', timestamp: new Date().toISOString(), node_id: 'ev-depot', side: 'sell', quantity_kw: 120, price_per_kwh: 6.4, status: 'open', agent_type: 'ev' },
   { id: 'ask-commercial', timestamp: new Date().toISOString(), node_id: 'commercial-north', side: 'sell', quantity_kw: 100, price_per_kwh: 8.1, status: 'open', agent_type: 'commercial' },
+  { id: 'ask-residential-north', timestamp: new Date().toISOString(), node_id: 'residential-north', side: 'sell', quantity_kw: 60, price_per_kwh: 9.2, status: 'open', agent_type: 'residential' },
+  { id: 'ask-residential-south', timestamp: new Date().toISOString(), node_id: 'residential-south', side: 'sell', quantity_kw: 40, price_per_kwh: 9.5, status: 'open', agent_type: 'residential' },
 ]
 
 function makeDecisions(shock: boolean) {
@@ -44,8 +45,12 @@ export function createMockSnapshot(tick = 1, scenario: CrisisScenario = 'normal'
   const shock = scenario !== 'normal'
   const severity = scenario === 'feeder_loss' ? 0.5 : scenario === 'supply_deficit' ? 0.2 : scenario === 'solar_reduction' ? 0.2 : 0
   const decisions = makeDecisions(shock)
-  const hospitalServed = shock ? 250 : 280
   const commercialCurtail = shock ? 100 : 0
+  const demand = baseOrders.filter((order) => order.side === 'buy').reduce((sum, order) => sum + order.quantity_kw, 0)
+  const supply = Math.round(320 * (1 - severity))
+  const served = decisions.filter((decision) => decision.accepted).reduce((sum, decision) => sum + decision.quantity_kw, 0)
+  const hospitalServed = Math.min(served, 280)
+  const unmet = demand - served
   const nodes = nodeSpecs.map((node) => {
     if (node.id === 'hospital') return { ...node, served_kw: hospitalServed, unmet_kw: node.requested_kw - hospitalServed, status: shock ? 'critical' : 'normal' }
     if (node.type === 'commercial') return { ...node, curtailed_kw: commercialCurtail, served_kw: node.requested_kw - commercialCurtail, status: shock ? 'shedding' : 'responsive' }
@@ -57,8 +62,6 @@ export function createMockSnapshot(tick = 1, scenario: CrisisScenario = 'normal'
     const status: LineStatus = loading >= 100 ? 'overloaded' : loading >= 80 ? 'warning' : 'normal'
     return { ...line, loading_pct: loading, status }
   })
-  const demand = 890
-  const supply = Math.round(demand * (1 - severity) + (shock ? 80 : 0))
   return {
     schema_version: '1.0',
     timestamp: new Date().toISOString(),
@@ -67,22 +70,21 @@ export function createMockSnapshot(tick = 1, scenario: CrisisScenario = 'normal'
     lines,
     agents: [
       { agent_id: 'hospital-agent', type: 'hospital', node_id: 'hospital', requested_kw: 280, served_kw: hospitalServed, availability_kw: 0, curtailed_kw: 0, policy_note: 'Protect ICU circuits above price.' },
-      { agent_id: 'ev-fleet-agent', type: 'ev', node_id: 'ev-depot', requested_kw: 0, served_kw: 0, availability_kw: shock ? 140 : 120, soc_pct: shock ? 71 : 78, curtailed_kw: 0, policy_note: 'Discharge above degradation cost.' },
-      { agent_id: 'commercial-agent', type: 'commercial', node_id: 'commercial-north', requested_kw: 340, served_kw: 340 - commercialCurtail, availability_kw: commercialCurtail, curtailed_kw: commercialCurtail, policy_note: 'Shed HVAC before non-critical service.' },
-      { agent_id: 'substation-agent', type: 'substation', node_id: 'substation-east', requested_kw: 0, served_kw: supply, availability_kw: supply, curtailed_kw: 0, policy_note: 'Clear only trades that pass path checks.' },
+      { agent_id: 'ev-fleet-agent', type: 'ev', node_id: 'ev-depot', requested_kw: 0, served_kw: 0, availability_kw: Math.round(120 * (1 - severity)), soc_pct: shock ? 71 : 78, curtailed_kw: 0, policy_note: 'Discharge above degradation cost.' },
+      { agent_id: 'commercial-agent', type: 'commercial', node_id: 'commercial-north', requested_kw: 340, served_kw: 340 - commercialCurtail, availability_kw: Math.round(100 * (1 - severity)), curtailed_kw: commercialCurtail, policy_note: 'Shed HVAC before non-critical service.' },
+      { agent_id: 'residential-north-agent', type: 'residential', node_id: 'residential-north', requested_kw: 60, served_kw: 0, availability_kw: Math.round(60 * (1 - severity)), curtailed_kw: 0, policy_note: 'Transparent local response.' },
+      { agent_id: 'residential-south-agent', type: 'residential', node_id: 'residential-south', requested_kw: 40, served_kw: 0, availability_kw: Math.round(40 * (1 - severity)), curtailed_kw: 0, policy_note: 'Transparent local response.' },
     ],
     order_book: baseOrders.map((order) => ({ ...order, timestamp: new Date().toISOString() })),
     recent_decisions: decisions,
+    power_balance: { total_demand_kw: demand, available_supply_kw: supply, served_load_kw: served, unmet_demand_kw: unmet, deficit_kw: unmet },
     metrics: { auction_ms: shock ? 1.4 : 0.9, emission_ms: 0.5, telemetry_age_ms: 0, auction_target_ms: 200, telemetry_target_ms: 100, auction_samples: tick, telemetry_samples: tick * 2, auction_p50_ms: shock ? 1.2 : 0.8, auction_p95_ms: shock ? 2.1 : 1.4, telemetry_p50_ms: 0.4, telemetry_p95_ms: 0.8, missed_auction_cycles: 0 },
     scenario: { name: 'Ward 4 feeder resilience', phase: shock ? 'shock' : 'baseline', shock_active: shock, shock_label: scenario === 'normal' ? 'No active shock' : scenario === 'feeder_loss' ? 'Feeder Loss · 50%' : scenario === 'supply_deficit' ? 'Supply Deficit · 20%' : 'Solar Reduction · 20%', seed: 42, physics_mode: 'SIMULATION FALLBACK' },
   }
 }
 
 export function historyFromSnapshot(snapshot: TelemetrySnapshot): HistoryPoint {
-  const demand = snapshot.nodes.reduce((sum, node) => sum + node.requested_kw, 0)
-  const served = snapshot.nodes.reduce((sum, node) => sum + node.served_kw, 0)
-  const flexibleSupply = snapshot.agents.filter((agent) => agent.type === 'ev').reduce((sum, agent) => sum + agent.availability_kw, 0)
-  const supply = served + flexibleSupply
+  const { total_demand_kw: demand, available_supply_kw: supply } = snapshot.power_balance
   const buys = snapshot.order_book.filter((order) => order.side === 'buy')
   const sells = snapshot.order_book.filter((order) => order.side === 'sell')
   const price = buys.length && sells.length ? (Math.max(...buys.map((order) => order.price_per_kwh)) + Math.min(...sells.map((order) => order.price_per_kwh))) / 2 : 0

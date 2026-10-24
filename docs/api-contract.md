@@ -38,7 +38,8 @@ The backend owns a single atomic `TelemetrySnapshot`. The frontend renders that 
   "lines": [{"id":"line-east-hospital","from_node":"substation-east","to_node":"hospital","capacity_kw":420,"loading_pct":107,"status":"overloaded"}],
   "agents": [{"agent_id":"ev-fleet","type":"ev","node_id":"ev-depot","availability_kw":120,"soc_pct":78}],
   "order_book": [],
-  "recent_decisions": [{"trade_id":"trade-12-1","accepted":true,"reason":"accepted by schema, path, capacity, and conservative thermal checks"}],
+    "recent_decisions": [{"trade_id":"trade-12-1","accepted":true,"reason":"accepted by schema, path, capacity, and conservative thermal checks"}],
+    "power_balance": {"total_demand_kw":280,"available_supply_kw":220,"served_load_kw":220,"unmet_demand_kw":60,"deficit_kw":60},
   "metrics": {"auction_ms":0.4,"emission_ms":0.1,"auction_target_ms":200,"telemetry_target_ms":100,"auction_p50_ms":0.4,"auction_p95_ms":0.6},
   "scenario": {"name":"Ward 4 feeder resilience","phase":"shock","shock_active":true,"shock_label":"Feeder Loss · 50%","seed":42,"physics_mode":"SIMULATION FALLBACK"}
 }
@@ -51,3 +52,11 @@ The backend owns a single atomic `TelemetrySnapshot`. The frontend renders that 
 - Rejected trades remain visible and include a machine-readable reason string.
 - The current MVP uses a conservative graph/path and line-capacity validator. It is explicitly **not AC validation**.
 - The midpoint clearing price is a modeled simulation rule, not a tariff or settlement price.
+
+## Power balance semantics
+
+- `total_demand_kw` is the current auction buy quantity.
+- `available_supply_kw` is the current auction sell quantity after scenario reductions.
+- `served_load_kw` is accepted allocation from the latest clearing cycle only.
+- `unmet_demand_kw` and `deficit_kw` are current demand minus latest-cycle served load; they are equivalent in this MVP.
+- These fields describe the emergency-market simulation in equivalent kW, not whole-city metering or a continuity guarantee.

@@ -84,6 +84,14 @@ export interface ScenarioStatus {
   physics_mode: string
 }
 
+export interface PowerBalance {
+  total_demand_kw: number
+  available_supply_kw: number
+  served_load_kw: number
+  unmet_demand_kw: number
+  deficit_kw: number
+}
+
 export interface TelemetrySnapshot {
   schema_version: string
   timestamp: string
@@ -93,6 +101,7 @@ export interface TelemetrySnapshot {
   agents: AgentState[]
   order_book: Order[]
   recent_decisions: TradeDecision[]
+  power_balance: PowerBalance
   metrics: Metrics
   scenario: ScenarioStatus
 }
