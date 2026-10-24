@@ -18,11 +18,12 @@ The dashboard uses the implemented contract in `docs/api-contract.md`:
 - `GET /health`
 - `GET /api/v1/state`
 - `POST /api/v1/scenario/start`
+- `POST /api/v1/scenario/pause`
 - `POST /api/v1/scenario/reset`
 - `POST /api/v1/chaos`
 - `WS /ws/telemetry`
 
-Telemetry is validated before rendering, including the backend's `power_balance` fields. The app reconnects with backoff, preserves the last valid snapshot, and clearly shows when it is using the synthetic demo fallback. The current backend does not expose a pause endpoint, so Pause/Resume pauses only the local demo telemetry view and says so in the UI.
+Telemetry is validated before rendering, including the backend's `power_balance` fields. The app reconnects with backoff, preserves the last valid snapshot, and clearly shows when it is using the synthetic demo fallback. In live mode, Pause/Resume controls the backend simulation loop.
 
 The dashboard's demand, supply, and deficit cards use the emergency-market balance in the snapshot: current auction buy quantity, current sell offers after scenario reduction, and unmet demand after the latest clearing cycle. These are equivalent-kW simulation values, not whole-city meters or a continuity guarantee.
 

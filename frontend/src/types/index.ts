@@ -116,7 +116,7 @@ export interface HealthResponse {
 export type CrisisScenario = 'normal' | 'supply_deficit' | 'feeder_loss' | 'solar_reduction'
 
 export interface ChaosEvent {
-  event_type: 'feeder_loss' | 'supply_deficit' | 'clear'
+  event_type: 'feeder_loss' | 'supply_deficit' | 'renewable_drop' | 'clear'
   target_id: string
   magnitude: number
   units: 'fraction'

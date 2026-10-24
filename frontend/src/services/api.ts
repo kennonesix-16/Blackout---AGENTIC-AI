@@ -17,6 +17,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 export const getHealth = () => request<unknown>('/health')
 export const getState = () => request<TelemetrySnapshot>('/api/v1/state')
 export const startSimulation = () => request<unknown>('/api/v1/scenario/start', { method: 'POST' })
+export const pauseSimulation = () => request<unknown>('/api/v1/scenario/pause', { method: 'POST' })
 export const resetSimulation = (seed = 42) => request<TelemetrySnapshot>('/api/v1/scenario/reset', { method: 'POST', body: JSON.stringify({ seed }) })
 export const injectScenario = (event: ChaosEvent) => request<TelemetrySnapshot>('/api/v1/chaos', { method: 'POST', body: JSON.stringify(event) })
 

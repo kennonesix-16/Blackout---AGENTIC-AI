@@ -6,11 +6,11 @@ Blackout Broker is a local-first demonstrator of an emergency energy marketplace
 
 ## What is implemented
 
-- Python 3.11 backend with FastAPI endpoints and a managed WebSocket telemetry hub.
-- Pydantic schemas for orders, trade proposals/decisions, agent state, chaos events, scenario status, and atomic telemetry snapshots.
+- Python 3.9+ backend with FastAPI endpoints and a managed WebSocket telemetry hub (Python 3.11 is also supported).
+- Pydantic schemas for orders, trade proposals/decisions, agent state, generators, chaos events, scenario status, decision events, and atomic telemetry snapshots.
 - Deterministic seedable personas and a continuous double auction using a transparent midpoint clearing price.
 - Eight named buses: two substations, Ward 4 hospital, EV depot, two commercial sites, and two residential sites.
-- Safety governor with schema, inventory, path, and conservative line-capacity checks.
+- Modular monitoring, allocation, trade-matching, and explanation engines with inventory, path, feeder-capacity, and conservative thermal checks.
 - A scripted feeder-loss event that produces accepted trades and a deterministic rejected residential trade.
 - React dashboard with a first-class local SVG topology fallback; Mapbox is not required.
 - Measured auction and telemetry samples with p50/p95 fields. Targets are displayed separately from observed values.
@@ -36,6 +36,29 @@ npm run dev
 
 Open `http://localhost:5173` after starting both processes. The dashboard connects to `http://localhost:8000` by default. Set `VITE_API_URL` to use another backend origin.
 
+## API and scenarios
+
+The frontend-compatible contract is documented in [`docs/api-contract.md`](docs/api-contract.md). The primary routes are:
+
+- `GET /health` and `GET /api/health`
+- `GET /api/v1/state`
+- `POST /api/v1/scenario/start` and `POST /api/v1/scenario/pause`
+- `POST /api/v1/scenario/reset`
+- `POST /api/v1/chaos` and `POST /api/scenarios/inject`
+- `POST /api/v1/scenario/{scenario_id}`
+- `WS /ws/telemetry`
+
+Supported scenario IDs are `normal`, `supply_20`, `supply_40`, `feeder_reduction_50`, `feeder_loss`, `feeder_outage`, `renewable_drop`, and `solar_reduction` (the last is a frontend-compatible alias). For example:
+
+```bash
+curl -X POST http://localhost:8000/api/v1/scenario/supply_40
+curl -X POST http://localhost:8000/api/v1/chaos \
+  -H 'Content-Type: application/json' \
+  -d '{"event_type":"feeder_loss","target_id":"ward-4-feeder","magnitude":0.5,"units":"fraction","seed":42}'
+```
+
+All power values are instantaneous `kW`; prices are modeled `₹/kWh` midpoint values. The simulator is deterministic for a given seed, and scenario changes replace prior modifiers rather than accumulating them.
+
 ## Two-minute demo
 
 1. Start the backend and frontend; confirm `LIVE TELEMETRY` and `SIMULATION FALLBACK`.
@@ -48,8 +71,8 @@ Open `http://localhost:5173` after starting both processes. The dashboard connec
 ## Checks
 
 ```bash
-PYTHONPATH=. pytest -q backend/tests
-PYTHONPATH=. python scripts/smoke_test.py
+PYTHONPATH=backend .venv/bin/python -m pytest -q backend/tests
+PYTHONPATH=. .venv/bin/python scripts/smoke_test.py
 cd frontend && npm run build
 ```
 

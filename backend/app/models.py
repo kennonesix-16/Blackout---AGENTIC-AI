@@ -45,6 +45,11 @@ class TradeDecision(BaseModel):
     reason: str
     physics_mode: str
     timestamp: str
+    decision_id: str | None = None
+    affected_id: str | None = None
+    decision_type: Literal["trade", "allocation", "scenario"] = "trade"
+    before: dict[str, float] = Field(default_factory=dict)
+    after: dict[str, float] = Field(default_factory=dict)
 
 
 class NodeState(BaseModel):
@@ -80,10 +85,41 @@ class AgentState(BaseModel):
     soc_pct: float | None = None
     curtailed_kw: float = 0
     policy_note: str = ""
+    allocation_reason: str = ""
+
+
+class GeneratorState(BaseModel):
+    generator_id: str
+    type: Literal["renewable", "conventional"]
+    node_id: str
+    capacity_kw: float = Field(ge=0)
+    available_kw: float = Field(ge=0)
+    status: str = "online"
+    allocation_kw: float = Field(ge=0)
+    reason: str = ""
+
+
+class DecisionEvent(BaseModel):
+    decision_id: str
+    kind: Literal["monitoring", "allocation", "trade", "scenario"]
+    affected_id: str
+    decision: str
+    reason: str
+    timestamp: str
+    before: dict[str, float] = Field(default_factory=dict)
+    after: dict[str, float] = Field(default_factory=dict)
 
 
 class ChaosEvent(BaseModel):
-    event_type: Literal["feeder_loss", "supply_deficit", "clear"]
+    event_type: Literal[
+        "feeder_loss",
+        "feeder_reduction",
+        "feeder_outage",
+        "supply_deficit",
+        "renewable_drop",
+        "solar_reduction",
+        "clear",
+    ]
     target_id: str = "ward-4-feeder"
     magnitude: float = Field(ge=0, le=1)
     units: str = "fraction"
@@ -97,6 +133,7 @@ class ScenarioStatus(BaseModel):
     shock_label: str
     seed: int
     physics_mode: str
+    scenario_id: str = "normal"
 
 
 class Metrics(BaseModel):
@@ -151,6 +188,8 @@ class TelemetrySnapshot(BaseModel):
     power_balance: PowerBalance
     metrics: Metrics
     scenario: ScenarioStatus
+    generators: list[GeneratorState] = Field(default_factory=list)
+    event_log: list[DecisionEvent] = Field(default_factory=list)
 
 
 class ScenarioCommand(BaseModel):

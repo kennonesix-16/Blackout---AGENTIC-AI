@@ -7,7 +7,7 @@ import { KpiCard } from '../components/KpiCard'
 import { NodeDetails, TopologyMap } from '../components/TopologyMap'
 import { OrderBook } from '../components/OrderBook'
 import { PriceChart, TrendChart } from '../components/TrendChart'
-import { getHealth, getState, injectScenario, resetSimulation, startSimulation } from '../services/api'
+import { getHealth, getState, injectScenario, pauseSimulation, resetSimulation, startSimulation } from '../services/api'
 import { createMockSnapshot, historyFromSnapshot, incidentsFromSnapshot } from '../services/mockData'
 import { createTelemetrySocket } from '../services/websocket'
 import type { CrisisScenario, GridNode, HistoryPoint, Incident, PowerBalance, TelemetrySnapshot, TradeDecision } from '../types'
@@ -99,8 +99,9 @@ export function DashboardPage() {
         setNotice(`Demo scenario applied · ${scenarioLabels[scenario]}.`)
         return
       }
-      if (scenario === 'solar_reduction') throw new Error('The backend contract does not expose a solar reduction event yet.')
-      const next = scenario === 'normal' ? await injectScenario({ event_type: 'clear', target_id: 'ward-4-feeder', magnitude: 0, units: 'fraction', seed: 42 }) : await injectScenario({ event_type: scenario === 'feeder_loss' ? 'feeder_loss' : 'supply_deficit', target_id: 'ward-4-feeder', magnitude: scenario === 'feeder_loss' ? 0.5 : 0.2, units: 'fraction', seed: 42 })
+      const next = scenario === 'normal'
+        ? await injectScenario({ event_type: 'clear', target_id: 'ward-4-feeder', magnitude: 0, units: 'fraction', seed: 42 })
+        : await injectScenario({ event_type: scenario === 'feeder_loss' ? 'feeder_loss' : scenario === 'solar_reduction' ? 'renewable_drop' : 'supply_deficit', target_id: scenario === 'solar_reduction' ? 'solar-array' : 'ward-4-feeder', magnitude: scenario === 'feeder_loss' ? 0.5 : 0.2, units: 'fraction', seed: 42 })
       if (isSnapshot(next)) pushSnapshot(next, 'live')
     } catch (error) {
       setNotice(error instanceof Error ? error.message : 'Scenario request failed. No successful backend response was received.')
@@ -110,6 +111,18 @@ export function DashboardPage() {
   const handleStart = async () => {
     setBusy(true)
     try { if (liveMode) await startSimulation(); setPaused(false); setNotice(liveMode ? 'Simulation loop started.' : 'Demo loop started.') } catch { setNotice('Start request failed. The backend did not confirm the action.') } finally { setBusy(false) }
+  }
+
+  const handlePauseToggle = async () => {
+    setBusy(true)
+    try {
+      if (liveMode) {
+        if (paused) await startSimulation()
+        else await pauseSimulation()
+      }
+      setPaused((value) => !value)
+      setNotice(liveMode ? (paused ? 'Simulation loop resumed.' : 'Simulation loop paused.') : (paused ? 'Demo telemetry resumed.' : 'Demo telemetry paused.'))
+    } catch { setNotice('Pause/resume request failed. The backend did not confirm the action.') } finally { setBusy(false) }
   }
 
   const handleReset = async () => {
@@ -126,7 +139,7 @@ export function DashboardPage() {
 
     <section className="hero"><div><div className="eyebrow orange">CITY RESILIENCE EXCHANGE / CONTROL ROOM</div><h2>Coordinate the city<br /><span>before the blackout spreads.</span></h2><p>Autonomous agents bid, shed, and discharge against a deterministic simulation of an eight-node urban grid.</p></div><div className={`system-state ${snapshot.scenario.shock_active ? 'shock' : ''}`}><div><span className="state-dot" /> SYSTEM {snapshot.scenario.shock_active ? 'UNDER SHOCK' : 'STABLE'}</div><strong>{snapshot.scenario.shock_label}</strong><small>PHYSICS MODE · {snapshot.scenario.physics_mode}</small></div></section>
 
-    <section className="control-strip"><div className="control-intro"><span className="eyebrow">SIMULATION CONTROL</span><strong>{paused ? 'Telemetry view paused' : snapshot.scenario.shock_active ? 'Crisis state is active' : 'Baseline market is running'}</strong><small>{notice || 'Choose a scenario to exercise the market and safety governor.'}</small></div><div className="control-actions"><button className="control-btn" disabled={busy} onClick={handleStart}><Play size={14} /> Start</button><button className={`control-btn ${paused ? 'active' : ''}`} disabled={busy} onClick={() => { setPaused((value) => !value); setNotice(paused ? 'Demo telemetry resumed.' : 'Demo telemetry paused locally; backend loop is unchanged.') }}><Pause size={14} /> {paused ? 'Resume' : 'Pause'}</button><button className="control-btn" disabled={busy} onClick={handleReset}><RotateCcw size={14} /> Reset</button></div><div className="scenario-actions"><button disabled={busy} onClick={() => updateScenario('normal')}>Normal</button><button disabled={busy} onClick={() => updateScenario('supply_deficit')}>-20% supply</button><button disabled={busy} onClick={() => updateScenario('feeder_loss')} className="danger-action"><AlertTriangle size={13} /> -50% feeder</button><button disabled={busy} onClick={() => updateScenario('solar_reduction')}>Solar -20%</button></div></section>
+     <section className="control-strip"><div className="control-intro"><span className="eyebrow">SIMULATION CONTROL</span><strong>{paused ? 'Telemetry view paused' : snapshot.scenario.shock_active ? 'Crisis state is active' : 'Baseline market is running'}</strong><small>{notice || 'Choose a scenario to exercise the market and safety governor.'}</small></div><div className="control-actions"><button className="control-btn" disabled={busy} onClick={handleStart}><Play size={14} /> Start</button><button className={`control-btn ${paused ? 'active' : ''}`} disabled={busy} onClick={handlePauseToggle}><Pause size={14} /> {paused ? 'Resume' : 'Pause'}</button><button className="control-btn" disabled={busy} onClick={handleReset}><RotateCcw size={14} /> Reset</button></div><div className="scenario-actions"><button disabled={busy} onClick={() => updateScenario('normal')}>Normal</button><button disabled={busy} onClick={() => updateScenario('supply_deficit')}>-20% supply</button><button disabled={busy} onClick={() => updateScenario('feeder_loss')} className="danger-action"><AlertTriangle size={13} /> -50% feeder</button><button disabled={busy} onClick={() => updateScenario('solar_reduction')}>Solar -20%</button></div></section>
     {notice && <div className={`notice ${notice.includes('unavailable') || notice.includes('failed') || notice.includes('does not') ? 'warning' : ''}`}><WifiOff size={15} /> {notice}</div>}
 
     <section className="kpi-grid"><KpiCard label="Market demand" value={`${Math.round(demand).toLocaleString()} kW`} detail="current auction buy quantity" icon={<Gauge size={19} />} tone="blue" /><KpiCard label="Available supply" value={`${supply.toLocaleString()} kW`} detail="current auction sell quantity" icon={<Zap size={19} />} tone={deficit ? 'amber' : 'green'} /><KpiCard label="Market deficit" value={`${deficit.toLocaleString()} kW`} detail="unmet demand after latest clearing" icon={<AlertTriangle size={19} />} tone={deficit ? 'red' : 'green'} /><KpiCard label="Hospital allocation" value={`${Math.round(hospital?.served_kw || 0)} kW`} detail={`${Math.round(hospital?.unmet_kw || 0)} kW unmet of ${Math.round(hospital?.requested_kw || 0)} kW`} icon={<HeartPulse size={19} />} tone={hospital?.unmet_kw ? 'red' : 'green'} /><KpiCard label="Clearing price" value={`₹${clearingPrice.toFixed(2)}`} detail="modeled midpoint / kWh" icon={<Activity size={19} />} tone="purple" /><KpiCard label="Trade decisions" value={`${accepted} / ${rejected}`} detail="accepted / rejected" icon={<ShieldCheck size={19} />} tone="green" /></section>
