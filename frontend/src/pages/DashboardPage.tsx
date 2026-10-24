@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Activity, AlertTriangle, BatteryCharging, CircleDot, Clock3, Gauge, HeartPulse, Pause, Play, RefreshCw, RotateCcw, ShieldCheck, Sparkles, WifiOff, Zap } from 'lucide-react'
+import { DecisionInspector } from '../components/DecisionInspector'
 import { AgentCard } from '../components/AgentCard'
 import { IncidentLog } from '../components/IncidentLog'
 import { KpiCard } from '../components/KpiCard'
@@ -9,7 +10,7 @@ import { PriceChart, TrendChart } from '../components/TrendChart'
 import { getHealth, getState, injectScenario, resetSimulation, startSimulation } from '../services/api'
 import { createMockSnapshot, historyFromSnapshot, incidentsFromSnapshot } from '../services/mockData'
 import { createTelemetrySocket } from '../services/websocket'
-import type { CrisisScenario, GridNode, HistoryPoint, Incident, TelemetrySnapshot } from '../types'
+import type { CrisisScenario, GridNode, HistoryPoint, Incident, TelemetrySnapshot, TradeDecision } from '../types'
 
 function isSnapshot(value: unknown): value is TelemetrySnapshot {
   const snapshot = value as TelemetrySnapshot | null
@@ -23,6 +24,7 @@ export function DashboardPage() {
   const [history, setHistory] = useState<HistoryPoint[]>(() => [historyFromSnapshot(createMockSnapshot())])
   const [incidents, setIncidents] = useState<Incident[]>(() => incidentsFromSnapshot(createMockSnapshot()))
   const [selectedNode, setSelectedNode] = useState<GridNode>()
+  const [selectedDecision, setSelectedDecision] = useState<TradeDecision>()
   const [connected, setConnected] = useState(false)
   const [liveMode, setLiveMode] = useState(false)
   const [paused, setPaused] = useState(false)
@@ -70,6 +72,7 @@ export function DashboardPage() {
   const clearingPrice = buyOrders.length && sellOrders.length ? (Math.max(...buyOrders.map((order) => order.price_per_kwh)) + Math.min(...sellOrders.map((order) => order.price_per_kwh))) / 2 : 0
   const accepted = snapshot.recent_decisions.filter((decision) => decision.accepted).length
   const rejected = snapshot.recent_decisions.filter((decision) => !decision.accepted).length
+  const activeDecision = selectedDecision && snapshot.recent_decisions.some((decision) => decision.trade_id === selectedDecision.trade_id) ? selectedDecision : snapshot.recent_decisions[0]
   const displayAgents = useMemo(() => snapshot.agents.some((agent) => agent.type === 'substation') ? snapshot.agents : [...snapshot.agents, {
     agent_id: 'auction-coordinator-view',
     type: 'substation',
@@ -128,7 +131,7 @@ export function DashboardPage() {
 
     <section className="content-grid two-column"><article className="panel"><div className="panel-header"><div><span className="eyebrow">SUPPLY / DEMAND HISTORY</span><h3>Grid balance</h3></div><span className="panel-tag">LAST {history.length} TICKS</span></div><TrendChart points={history} /></article><article className="panel"><div className="panel-header"><div><span className="eyebrow">MARKET SIGNAL</span><h3>Clearing price</h3></div><span className="panel-tag">MIDPOINT RULE</span></div><PriceChart points={history} /></article></section>
 
-    <section className="content-grid market-layout"><article className="panel"><div className="panel-header"><div><span className="eyebrow">CONTINUOUS DOUBLE AUCTION</span><h3>Live order book</h3></div><span className="panel-tag">{snapshot.order_book.length} OPEN ORDERS</span></div><OrderBook orders={snapshot.order_book} decisions={snapshot.recent_decisions} /></article><article className="panel"><div className="panel-header"><div><span className="eyebrow">AGENT ACTIVITY</span><h3>Decision feed</h3></div><span className="panel-tag">DETERMINISTIC POLICIES</span></div><IncidentLog incidents={incidents} /></article></section>
+    <section className="content-grid market-layout"><article className="panel"><div className="panel-header"><div><span className="eyebrow">CONTINUOUS DOUBLE AUCTION</span><h3>Live order book</h3></div><span className="panel-tag">{snapshot.order_book.length} OPEN ORDERS</span></div><OrderBook orders={snapshot.order_book} decisions={snapshot.recent_decisions} /></article><article className="panel"><div className="panel-header"><div><span className="eyebrow">SAFETY GOVERNOR</span><h3>Why this trade?</h3></div><span className="panel-tag">EXPLAINABLE CHECKS</span></div><DecisionInspector snapshot={snapshot} decision={activeDecision} onSelect={setSelectedDecision} /><div className="incident-divider"><div className="panel-header"><div><span className="eyebrow">AGENT ACTIVITY</span><h3>Decision feed</h3></div><span className="panel-tag">RECENT EVENTS</span></div><IncidentLog incidents={incidents} /></div></article></section>
 
     <section className="panel agents-panel"><div className="panel-header"><div><span className="eyebrow">AUTONOMOUS PARTICIPANTS</span><h3>Agent operating states</h3></div><span className="panel-tag">{displayAgents.length} ACTIVE / DERIVED</span></div><div className="agent-grid">{displayAgents.map((agent) => <AgentCard key={agent.agent_id} agent={agent} />)}</div></section>
 
